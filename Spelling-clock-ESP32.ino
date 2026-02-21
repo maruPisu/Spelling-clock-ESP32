@@ -19,7 +19,7 @@
 #define OLED_ADDR 0x3C 
 
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
-Adafruit_NeoPixel strip(NUM_LEDS, LED_PIN, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel strip(NUM_LEDS, LED_PIN, NEO_RGB + NEO_KHZ800);
 RTC_DS3231 rtc;
 
 const unsigned long debounceDelay = 50;
@@ -100,7 +100,9 @@ int convertTime(int in_time) {
 }
 
 int getHour() {
-  return rtc.now().hour();
+  int hour12 = rtc.now().hour() % 12;
+  if (hour12 == 0) hour12 = 12;  // Convert 0 to 12 for midnight/noon
+  return hour12;
 }
 
 int getMins() {
@@ -212,9 +214,8 @@ void handleClick() {
 
 void initStrip() {
   strip.begin();
-  for (int i = 0; i < NUM_LEDS; i++) {
-    strip.setPixelColor(i, strip.Color(0, 0, 0));
-  }
+  strip.setBrightness(50); 
+  strip.clear();
   strip.show();  // Initialize all pixels to 'off'
 }
 
@@ -224,7 +225,9 @@ void setup() {
 
   Wire.begin(21, 22);
   delay(100);
-  
+
+  pinMode(BUTTON, INPUT_PULLUP); 
+
   Serial.println("Starting devices...");
   
   // Initialize OLED display
@@ -245,6 +248,11 @@ void setup() {
     Serial.println("RTC not found!");
   } else {
     Serial.println("RTC initialized");
+  }
+  
+  if (rtc.lostPower()) {
+    Serial.println("RTC lost power, setting compile time");
+    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
   }
   pinMode(LED, OUTPUT);
   display.clearDisplay();
@@ -308,7 +316,7 @@ void loop() {
     drawArrow();
     display.display();
   }
-
+  
   //********** HANDLE CLICK / DOUBLE CLICK begin
   bool reading = digitalRead(BUTTON);
 
